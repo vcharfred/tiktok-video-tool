@@ -8,6 +8,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.io.File;
 
 /**
  * <p> 界面 </p>
@@ -30,8 +31,12 @@ public class AppUI {
 
     private static TikTokHttpUtil tikTokHttp;
 
+    private static String separator;
+
     public AppUI() {
         tikTokHttp = TikTokHttpUtil.getInstance(this);
+        fileDirInput.setText(System.getProperty("user.dir"));
+        separator = String.valueOf(File.separatorChar);
 
         clearBtn.addActionListener(new ActionListener() {
             @Override
@@ -67,8 +72,8 @@ public class AppUI {
                     }
                     if (StringUtils.isNotBlank(dir)) {
                         dir = dir.trim();
-                        if (!dir.endsWith("\\")) {
-                            dir += "\\";
+                        if (!dir.endsWith(separator)) {
+                            dir += separator;
                         }
                         if (StringUtils.isNotBlank(url)) {
                             try {
@@ -80,7 +85,7 @@ public class AppUI {
                             fileName.setText("");
                         }
                     } else {
-                        logArea.append("\n" + "请设置文件保存路径.");
+                        addLog("请设置文件保存路径.");
                     }
                     addLog("=============end==================");
                     AppUI.downloadBtnIsEnable = true;
