@@ -79,10 +79,11 @@ public class AppUI {
                             try {
                                 String videoUrl = tikTokHttp.extractVideoUrl(url);
                                 tikTokHttp.downloadVideo(videoUrl, dir, videoName);
+                                shareUrlInput.setText("");
+                                fileName.setText("");
                             } catch (Exception ex) {
                                 ex.printStackTrace();
                             }
-                            fileName.setText("");
                         }
                     } else {
                         addLog("请设置文件保存路径.");

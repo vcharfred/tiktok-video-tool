@@ -78,9 +78,9 @@ public class TikTokHttpUtil {
         url = execute(url);
 
         String body = Jsoup.connect(url).ignoreContentType(true).execute().body();
-        JSONObject data = JSONObject.parseObject(body);
-
-        String videoId = data.getJSONArray("item_list").getJSONObject(0).getJSONObject("video")
+        JSONObject data = JSONObject.parseObject(body).getJSONArray("item_list").getJSONObject(0);
+        printLog(data.getString("desc"));
+        String videoId = data.getJSONObject("video")
                 .getJSONObject("play_addr").getString("uri");
         return String.format("https://aweme.snssdk.com/aweme/v1/play/?video_id=%s&ratio=720p&line=0", videoId);
     }
@@ -153,8 +153,10 @@ public class TikTokHttpUtil {
         headers.put("Host", "aweme.snssdk.com");
         headers.put("User-Agent", USER_AGENT);
 
+        OutputStream out = null;
+        BufferedInputStream in = null;
         try {
-            BufferedInputStream in = Jsoup.connect(videoUrl).headers(headers).referrer("https://www.iesdouyin.com/").timeout(10000).ignoreContentType(true).execute().bodyStream();
+            in = Jsoup.connect(videoUrl).headers(headers).referrer("https://www.iesdouyin.com/").timeout(20000).ignoreContentType(true).execute().bodyStream();
             if (null == fileName) {
                 fileName = System.currentTimeMillis() + ".mp4";
             }
@@ -167,19 +169,34 @@ public class TikTokHttpUtil {
                 }
             }
 
-            OutputStream out = new BufferedOutputStream(new FileOutputStream(fileSavePath));
+            out = new BufferedOutputStream(new FileOutputStream(fileSavePath));
             int b;
             while ((b = in.read()) != -1) {
                 out.write(b);
             }
-            out.close();//关闭输出流
-            in.close(); //关闭输入流
 
             printLog("视频下载成功");
             printLog("-----抖音去水印链接-----\n" + videoUrl);
             printLog("-----视频保存路径-----\n" + fileSavePath.getAbsolutePath());
         } catch (IOException e) {
             printLog("视频下载失败: " + e.getMessage());
+        } finally {
+            if (out != null) {
+                try {
+                    //关闭输出流
+                    out.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (in != null) {
+                try {
+                    //关闭输入流
+                    in.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
