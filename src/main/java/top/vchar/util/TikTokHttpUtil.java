@@ -82,7 +82,7 @@ public class TikTokHttpUtil {
         printLog(data.getString("desc"));
         String videoId = data.getJSONObject("video")
                 .getJSONObject("play_addr").getString("uri");
-        return String.format("https://aweme.snssdk.com/aweme/v1/play/?video_id=%s&ratio=720p&line=0", videoId);
+        return String.format("https://aweme.snssdk.com/aweme/v1/play/?video_id=%s&ratio=1080P&line=0", videoId);
     }
 
     public String execute(String url) throws Exception {
