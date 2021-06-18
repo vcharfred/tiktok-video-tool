@@ -9,6 +9,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.io.File;
+import java.util.List;
 
 /**
  * <p> 界面 </p>
@@ -77,8 +78,15 @@ public class AppUI {
                         }
                         if (StringUtils.isNotBlank(url)) {
                             try {
-                                String videoUrl = tikTokHttp.extractVideoUrl(url);
-                                tikTokHttp.downloadVideo(videoUrl, dir, videoName);
+                                List<String> videoUrl = tikTokHttp.extractVideoUrl(url);
+                                if(videoUrl.size()==1){
+                                    tikTokHttp.downloadVideo(videoUrl.get(0), dir, videoName);
+                                }else {
+                                    String imageDir = dir+System.currentTimeMillis()+separator;
+                                    for(String imageUrl:videoUrl){
+                                        tikTokHttp.downloadImage(imageUrl, imageDir);
+                                    }
+                                }
                                 shareUrlInput.setText("");
                                 fileName.setText("");
                             } catch (Exception ex) {

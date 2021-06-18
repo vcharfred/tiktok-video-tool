@@ -1,5 +1,6 @@
 package top.vchar.util;
 
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.config.RequestConfig;
@@ -16,7 +17,10 @@ import top.vchar.AppUI;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -68,7 +72,7 @@ public class TikTokHttpUtil {
      * @param tikTokVideoShareUrl 抖音分享视频连接
      * @return 返回抖音无水印视频链接
      */
-    public String extractVideoUrl(String tikTokVideoShareUrl) throws Exception {
+    public List<String> extractVideoUrl(String tikTokVideoShareUrl) throws Exception {
         //过滤链接，获取http连接地址
         String url = decodeHttpUrl(tikTokVideoShareUrl);
         if (appUI != null) {
@@ -80,9 +84,31 @@ public class TikTokHttpUtil {
         String body = Jsoup.connect(url).ignoreContentType(true).execute().body();
         JSONObject data = JSONObject.parseObject(body).getJSONArray("item_list").getJSONObject(0);
         printLog(data.getString("desc"));
-        String videoId = data.getJSONObject("video")
-                .getJSONObject("play_addr").getString("uri");
-        return String.format("https://aweme.snssdk.com/aweme/v1/play/?video_id=%s&ratio=1080P&line=0", videoId);
+
+        List<String> urlList = new ArrayList<>();
+        JSONObject videoJson = data.getJSONObject("video");
+        String videoId = videoJson.getString("vid");
+        if(StringUtils.isNotBlank(videoId)){
+            urlList.add(String.format("https://aweme.snssdk.com/aweme/v1/play/?video_id=%s&ratio=1080P&line=0", videoId));
+        }else {
+            JSONArray images = data.getJSONArray("images");
+            for(int i=0; i<images.size(); i++){
+                JSONObject imageJson = images.getJSONObject(i);
+                JSONArray array = imageJson.getJSONArray("url_list");
+                if(null!=array&&array.size()>0){
+                    String imageUrl = array.getString(0);
+                    for(int j=0; j<array.size(); j++){
+                        String imageUrl1 = array.getString(j);
+                        if(imageUrl1.contains(".jpeg")){
+                            imageUrl = imageUrl1;
+                            break;
+                        }
+                    }
+                    urlList.add(imageUrl);
+                }
+            }
+        }
+        return urlList;
     }
 
     public String execute(String url) throws Exception {
@@ -176,10 +202,62 @@ public class TikTokHttpUtil {
             }
 
             printLog("视频下载成功");
-            printLog("-----抖音去水印链接-----\n" + videoUrl);
-            printLog("-----视频保存路径-----\n" + fileSavePath.getAbsolutePath());
+            printLog("抖音去水印链接:" + videoUrl);
+            printLog("视频保存路径:" + fileSavePath.getAbsolutePath());
         } catch (IOException e) {
             printLog("视频下载失败: " + e.getMessage());
+        } finally {
+            if (out != null) {
+                try {
+                    //关闭输出流
+                    out.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (in != null) {
+                try {
+                    //关闭输入流
+                    in.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public void downloadImage(String imageUrl, String dir){
+        Map<String, String> headers = new HashMap<String, String>();
+        headers.put("Connection", "keep-alive");
+        headers.put("Host", "aweme.snssdk.com");
+        headers.put("User-Agent", USER_AGENT);
+        OutputStream out = null;
+        BufferedInputStream in = null;
+        try {
+            in = Jsoup.connect(imageUrl).headers(headers).timeout(20000)
+                    .ignoreContentType(true)
+                    .execute()
+                    .bodyStream();
+            String fileName = System.currentTimeMillis() + ".jpeg";
+            File fileSavePath = new File(dir + fileName);
+            File fileParent = fileSavePath.getParentFile();
+            if (!fileParent.exists()) {
+                if (!fileParent.mkdirs()) {
+                    printLog("文件创建失败，请检查文件路径是否正确");
+                    return;
+                }
+            }
+
+            out = new BufferedOutputStream(Files.newOutputStream(fileSavePath.toPath()));
+            int b;
+            while ((b = in.read()) != -1) {
+                out.write(b);
+            }
+
+            printLog("图片下载成功:" + imageUrl);
+            printLog("图片保存路径:" + fileSavePath.getAbsolutePath()+"\n");
+        } catch (IOException e) {
+            printLog("图片下载失败: " + e.getMessage());
         } finally {
             if (out != null) {
                 try {
