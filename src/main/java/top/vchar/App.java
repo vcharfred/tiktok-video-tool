@@ -15,7 +15,7 @@ public class App {
     public static void main(String[] args) {
         EventQueue.invokeLater(() -> {
             JFrame frame = new JFrame("抖音视频下载");
-            frame.setSize(800, 500);
+            frame.setSize(600, 400);
 
             //获取系统窗口大小
             Toolkit toolkit = Toolkit.getDefaultToolkit();
