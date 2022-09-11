@@ -174,7 +174,9 @@ public class TikTokHttpUtil {
     }
 
     public void downloadVideo(String videoUrl, String dir, String fileName) {
-        Map<String, String> headers = new HashMap<String, String>();
+        printLog("抖音去水印链接:" + videoUrl);
+
+        Map<String, String> headers = new HashMap<>(3);
         headers.put("Connection", "keep-alive");
         headers.put("Host", "aweme.snssdk.com");
         headers.put("User-Agent", USER_AGENT);
@@ -183,29 +185,16 @@ public class TikTokHttpUtil {
         BufferedInputStream in = null;
         try {
             in = Jsoup.connect(videoUrl).headers(headers).referrer("https://www.iesdouyin.com/").timeout(20000).ignoreContentType(true).execute().bodyStream();
-            if (null == fileName) {
-                fileName = System.currentTimeMillis() + ".mp4";
-            }
-            File fileSavePath = new File(dir + fileName);
-            File fileParent = fileSavePath.getParentFile();
-            if (!fileParent.exists()) {
-                if (!fileParent.mkdirs()) {
-                    printLog("文件创建失败，请检查文件路径是否正确");
-                    return;
-                }
-            }
-
-            out = new BufferedOutputStream(new FileOutputStream(fileSavePath));
+            out = buildFileOutOutStream(dir, fileName);
             int b;
             while ((b = in.read()) != -1) {
                 out.write(b);
             }
-
             printLog("视频下载成功");
-            printLog("抖音去水印链接:" + videoUrl);
-            printLog("视频保存路径:" + fileSavePath.getAbsolutePath());
         } catch (IOException e) {
             printLog("视频下载失败: " + e.getMessage());
+            // 由于jsoup偶尔会出现失败的情况，这里切换到httpclient
+            retryDownloadVideo(videoUrl, dir, fileName);
         } finally {
             if (out != null) {
                 try {
@@ -223,6 +212,50 @@ public class TikTokHttpUtil {
                     e.printStackTrace();
                 }
             }
+        }
+    }
+
+    private void retryDownloadVideo(String videoUrl, String dir, String fileName) {
+        printLog("开始尝试通过其他方式下载视频，若依然失败请手动下载");
+        try{
+            HttpGet httpGet = new HttpGet(buildUri(videoUrl));
+            httpGet.setConfig(setHttpTimeOut());
+
+            httpGet.addHeader("User-Agent", "PostmanRuntime/7.29.2");
+            httpGet.addHeader("Accept", "*/*");
+            httpGet.addHeader("Host", "aweme.snssdk.com");
+            httpGet.addHeader("Accept-Encoding", "gzip, deflate, br");
+            httpGet.addHeader("Connection", "keep-alive");
+            HttpClientContext context = HttpClientContext.create();
+            try (CloseableHttpResponse req = httpClient.execute(httpGet, context)) {
+                URI uri = context.getRedirectLocations().get(0);
+                printLog("抖音去水印链接:" + uri.toString());
+                HttpGet httpGet2 = new HttpGet(uri);
+                httpGet2.setConfig(setHttpTimeOut());
+                httpGet2.addHeader("User-Agent", USER_AGENT);
+                httpGet2.addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9");
+                httpGet2.addHeader("Accept-Encoding", "gzip, deflate, br");
+                httpGet2.addHeader("Connection", "keep-alive");
+                HttpClientContext context2 = HttpClientContext.create();
+                try (CloseableHttpResponse response = httpClient.execute(httpGet2, context2)) {
+                    if(response.getStatusLine().getStatusCode()==200){
+                        InputStream in = response.getEntity().getContent();
+                        try (OutputStream out = buildFileOutOutStream(dir, fileName)){
+                            int b;
+                            while ((b = in.read()) != -1) {
+                                out.write(b);
+                            }
+                            printLog("视频下载成功");
+                        }
+                    }else {
+                        printLog("视频下载失败："+response.getStatusLine());
+                    }
+                }
+            } catch (IOException e) {
+                printLog("尝试重新下载失败: "+e.getMessage());
+            }
+        }catch (Exception e){
+            printLog("下载地址解析失败!");
         }
     }
 
@@ -286,4 +319,19 @@ public class TikTokHttpUtil {
         }
     }
 
+    private OutputStream buildFileOutOutStream(String dir, String fileName) throws IOException {
+        if (null == fileName) {
+            fileName = System.currentTimeMillis() + ".mp4";
+        }
+        File fileSavePath = new File(dir + fileName);
+        File fileParent = fileSavePath.getParentFile();
+        if (!fileParent.exists()) {
+            if (!fileParent.mkdirs()) {
+                printLog("文件创建失败，请检查文件路径是否正确");
+                throw new IOException("文件创建失败，请检查文件路径是否正确");
+            }
+        }
+        printLog("视频保存路径:" + fileSavePath.getAbsolutePath());
+        return new BufferedOutputStream(Files.newOutputStream(fileSavePath.toPath()));
+    }
 }

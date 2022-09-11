@@ -129,6 +129,7 @@ public class AppUI {
 
     public void addLog(String message) {
         this.logArea.append("\n" + message);
+        this.logArea.paintImmediately(logArea.getBounds());
     }
 
     public void updateUrl(String url) {
