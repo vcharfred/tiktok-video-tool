@@ -135,8 +135,12 @@ public class TikTokHttpUtil {
     public String decodeHttpUrl(String url) {
         try {
             int start = url.indexOf("http");
-            int end = url.lastIndexOf("/");
-            return url.substring(start, end + 1);
+            String dyUri = url.substring(start);
+            int end = dyUri.indexOf("/ ");
+            if (end<1) {
+                end = dyUri.lastIndexOf("/");
+            }
+            return dyUri.substring(0, end + 1);
         } catch (Exception e) {
             printLog("解析抖音视频分享链接失败.");
             throw new NullPointerException("提取视频下载地址异常!");
