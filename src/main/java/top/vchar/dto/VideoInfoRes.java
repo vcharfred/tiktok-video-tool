@@ -1,5 +1,6 @@
 package top.vchar.dto;
 
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.annotation.JSONField;
 import lombok.Data;
@@ -46,12 +47,16 @@ public class VideoInfoRes {
             return list;
         }
 
-        int size = itemInfo.getImages().size();
+        JSONArray images = itemInfo.getImages().getJSONObject(itemInfo.getImages().size() - 1).getJSONArray("images");
+        int size = images.size();
         for (int i = 0; i < size; i++) {
-            List<String> imgUrls = itemInfo.getImages().getJSONObject(i)
-                    .getJSONArray("download_url_list").toJavaList(String.class);
+            List<String> imgUrls = images.getJSONObject(i)
+                    .getJSONArray("url_list").toJavaList(String.class);
             if (null != imgUrls && !imgUrls.isEmpty()) {
                 list.add(imgUrls.get(imgUrls.size() - 1));
+            }
+            if (StringUtils.isNotBlank(images.getJSONObject(i).getString("download_url_list"))) {
+                System.out.println(images.getJSONObject(i).getString("download_url_list"));
             }
         }
         return list;

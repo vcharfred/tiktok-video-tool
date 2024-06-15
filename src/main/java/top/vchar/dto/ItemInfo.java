@@ -2,19 +2,15 @@ package top.vchar.dto;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.annotation.JSONField;
 import lombok.Data;
 
-/**
- * <p>  TODO 功能描述 </p>
- *
- * @author vchar fred
- * @create_date 2024/6/10
- */
 @Data
 public class ItemInfo {
 
     private JSONObject video;
 
+    @JSONField(name = "img_bitrate")
     private JSONArray images;
 
 }

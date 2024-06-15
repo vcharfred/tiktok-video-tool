@@ -6,12 +6,6 @@ import top.vchar.util.StringUtils;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * <p>  TODO 功能描述 </p>
- *
- * @author vchar fred
- * @create_date 2024/6/10
- */
 @Data
 public class RenderDataApp {
 
