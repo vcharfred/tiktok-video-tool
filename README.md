@@ -1,9 +1,9 @@
 # tiktok-video-tool
 
 [![build status](https://img.shields.io/badge/build-main-green)]()
-[![jdk](https://img.shields.io/badge/jdk-1.8-green)]()
+[![jdk](https://img.shields.io/badge/jdk-17-green)]()
 
-抖音分享视频无水印下载工具；仅供学习使用；下载已经打包好的文件直接双击运行即可（注意需要安装jdk）
+抖音分享视频无水印下载工具；仅供学习使用；下载已经打包好的文件直接双击运行即可（注意需要安装jdk8以及以上，建议jdk17）
 
 ### 使用
 
@@ -17,6 +17,7 @@ xxxx  %抖音原创动漫  @抖音动漫   %轻漫计划 %充能计划  https://
 直接使用这个复制内容即可
 
 * 如果出现 `提取视频下载地址异常！` 提示建议等待几秒钟后再试
+* 注意由于抖音接口升级，增加了更多的校验，所以会有出现提取失败的情况。 因此建议先通过浏览器访问，然后将网页源码复制到输入框中提取下载地址。
 
 ![](tiktok.png)
 

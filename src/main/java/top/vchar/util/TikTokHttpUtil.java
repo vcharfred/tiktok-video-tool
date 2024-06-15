@@ -83,16 +83,16 @@ public class TikTokHttpUtil {
     public List<String> extractVideoUrl(String tikTokVideoShareUrl) throws Exception {
         //过滤链接，获取http连接地址
         String url = decodeHttpUrl(tikTokVideoShareUrl);
-        if (appUI != null) {
-            appUI.updateUrl(url);
-        }
-
         List<String> urlList = execute(url);
         printLog(JSONObject.toJSONString(urlList));
         return urlList;
     }
 
     public List<String> execute(String url) throws Exception {
+        if (url.startsWith("<html")) {
+            return this.parseData(url);
+        }
+
         HttpGet httpGet = new HttpGet(buildUri(url));
         httpGet.setConfig(setHttpTimeOut());
 
@@ -147,6 +147,15 @@ public class TikTokHttpUtil {
     }
 
     public String decodeHttpUrl(String url) {
+        // 判断传入的是否是一个HTML网页内容
+        if (url.startsWith("<html")) {
+            printLog("非抖音分享链接，使用网页解析");
+            if (appUI != null) {
+                appUI.updateUrl("");
+            }
+            return url;
+        }
+
         try {
             int start = url.indexOf("http");
             String dyUri = url.substring(start);
@@ -154,7 +163,12 @@ public class TikTokHttpUtil {
             if (end<1) {
                 end = dyUri.lastIndexOf("/");
             }
-            return dyUri.substring(0, end + 1);
+            String relUrl = dyUri.substring(0, end + 1);
+
+            if (appUI != null) {
+                appUI.updateUrl(relUrl);
+            }
+            return relUrl;
         } catch (Exception e) {
             printLog("解析抖音视频分享链接失败.");
             throw new NullPointerException("提取视频下载地址异常!");
