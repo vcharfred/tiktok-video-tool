@@ -55,7 +55,7 @@ public class AppUI {
                     addLog("=============start==================");
 
                     String url = shareUrlInput.getText();
-                    if (isDefaultUrl(url)) {
+                    if (isDefaultUrl(url) || StringUtils.isBlank(url)) {
                         addLog("请输入抖音视频分享链接\n=============end==================");
                         AppUI.downloadBtnIsEnable = true;
                         return;
