@@ -1,24 +1,32 @@
 package top.vchar.util;
 
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import org.apache.http.HttpResponse;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.cookie.Cookie;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.cookie.BasicClientCookie;
+import org.apache.http.util.EntityUtils;
+import org.brotli.dec.BrotliInputStream;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import top.vchar.AppUI;
+import top.vchar.dto.RenderData;
 
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +47,7 @@ public class TikTokHttpUtil {
     public static final int CONNECTION_REQUEST_TIMEOUT = 10000;
     public static final int SOCKET_TIMEOUT = 10000;
     private static final String USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1";
-
+    private static final String ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7";
 
     private CloseableHttpClient httpClient = null;
 
@@ -79,56 +87,62 @@ public class TikTokHttpUtil {
             appUI.updateUrl(url);
         }
 
-        url = execute(url);
-
-        String body = Jsoup.connect(url).ignoreContentType(true).execute().body();
-        JSONObject data = JSONObject.parseObject(body).getJSONArray("item_list").getJSONObject(0);
-        printLog(data.getString("desc"));
-
-        List<String> urlList = new ArrayList<>();
-        JSONObject videoJson = data.getJSONObject("video");
-        String videoId = videoJson.getString("vid");
-        if(StringUtils.isNotBlank(videoId)){
-            urlList.add(String.format("https://aweme.snssdk.com/aweme/v1/play/?video_id=%s&ratio=1080P&line=0", videoId));
-        }else {
-            JSONArray images = data.getJSONArray("images");
-            for(int i=0; i<images.size(); i++){
-                JSONObject imageJson = images.getJSONObject(i);
-                JSONArray array = imageJson.getJSONArray("url_list");
-                if(null!=array&&array.size()>0){
-                    String imageUrl = array.getString(0);
-                    for(int j=0; j<array.size(); j++){
-                        String imageUrl1 = array.getString(j);
-                        if(imageUrl1.contains(".jpeg")){
-                            imageUrl = imageUrl1;
-                            break;
-                        }
-                    }
-                    urlList.add(imageUrl);
-                }
-            }
-        }
+        List<String> urlList = execute(url);
+        printLog(JSONObject.toJSONString(urlList));
         return urlList;
     }
 
-    public String execute(String url) throws Exception {
+    public List<String> execute(String url) throws Exception {
         HttpGet httpGet = new HttpGet(buildUri(url));
         httpGet.setConfig(setHttpTimeOut());
 
         httpGet.addHeader("User-Agent", USER_AGENT);
-        httpGet.addHeader("Accept", "*/*");
-        httpGet.addHeader("Accept-Encoding", "gzip, deflate, br");
+        httpGet.addHeader("Accept", ACCEPT);
+        httpGet.addHeader("Accept-Encoding", "gzip, deflate, br, zstd");
         httpGet.addHeader("accept-language", "zh-CN,zh;q=0.9");
 
+        BasicCookieStore cookieStore = new BasicCookieStore();
+        Cookie cookieExample = new BasicClientCookie("", "");
+        cookieStore.addCookie(cookieExample);
         HttpClientContext context = HttpClientContext.create();
-        try (CloseableHttpResponse response = httpClient.execute(httpGet, context)) {
-            URI uri = context.getRedirectLocations().get(0);
-            url = uri.toString();
-            String[] arr = url.split("\\?")[0].split("/");
-            return "https://www.iesdouyin.com/web/api/v2/aweme/iteminfo/?item_ids=" + arr[arr.length - 1];
+
+        try (CloseableHttpClient httpclient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build()) {
+            HttpResponse response = httpclient.execute(httpGet, context);
+            try {
+                if (response.getFirstHeader("Content-Encoding") != null
+                        && "br".equalsIgnoreCase(response.getFirstHeader("Content-Encoding").getValue())) {
+                    byte[] body = decompressBrotli(EntityUtils.toByteArray(response.getEntity()));
+                    return this.parseData(new String(body));
+                } else {
+                    return this.parseData(EntityUtils.toString(response.getEntity()));
+                }
+            } finally {
+                EntityUtils.consume(response.getEntity());
+            }
         } catch (IOException e) {
             printLog("提取视频下载地址异常!");
             throw new NullPointerException("提取视频下载地址异常!");
+        }
+    }
+
+    private List<String> parseData(String html) {
+        Document document = Jsoup.parse(html);
+        Element element = document.getElementById("RENDER_DATA");
+        String str = URLDecoder.decode(element.html(), StandardCharsets.UTF_8);
+        RenderData renderData = JSONObject.parseObject(str, RenderData.class);
+        return renderData.getUrls();
+    }
+
+    private static byte[] decompressBrotli(byte[] compressed) throws IOException {
+        try (BrotliInputStream brotliInputStream = new BrotliInputStream(new ByteArrayInputStream(compressed));
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = brotliInputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, length);
+            }
+            return outputStream.toByteArray();
         }
     }
 
@@ -151,7 +165,7 @@ public class TikTokHttpUtil {
     /**
      * 设置请求超时
      *
-     * @return 返回新的请求配置
+     * @return 返回新请求配置
      */
     private static RequestConfig setHttpTimeOut() {
         return RequestConfig.custom()
